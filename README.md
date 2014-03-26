@@ -1,5 +1,8 @@
-arrest
-======
+arrest-jwt-bucket
+=================
+
+Forked from vivocha arrest repo : https://github.com/vivocha/arrest
+
 
 REST framework for Node.js, Express and MongoDB
 
@@ -7,26 +10,30 @@ Arrest lets you write RESTful web services in minutes. It works with Express,
 implements simple CRUD semantics on MongoDB and the resulting web services
 are compatible with the $resource service of AngularJS.
 
+It differs from the original repo by using jwt for accessing routes, and a variable in the token named bucket for db name.
+
 ## How to Install
 
 ```bash
-npm install arrest
+npm install arrest-jwt-bucket
 ```
 
 ## Super Simple Sample
 
 The following sample application shows how to attach a simple REST API to and express
 application. In the sample, the path */api* is linked to a *data* collection
-on a MongoDB instance running on *localhost*:
+on a MongoDB instance running on *localhost* with the db name stored in the *jsontoken* token:
 
 ```js
 var arrest = require('arrest')
   , express = require('express')
-  , app = express()
+  , app = express();
+
+var privateKey = "aaaaaaaahhhhhhhhhh";
 
 app.use(express.bodyParser());
 
-arrest.use(app, '/api', new arrest.RestMongoAPI('mongodb://localhost:27017', 'data'));
+arrest.use(app, '/api', new arrest.RestMongoAPI('mongodb://localhost:27017', privateKey, 'data'));
 
 app.listen(3000);
 ```
@@ -34,13 +41,13 @@ app.listen(3000);
 Now you can query your *data* collection like this:
 
 ```bash
-curl "http://localhost:3000/api"
+curl --header "Authorization: Bearer jwttoken" "http://localhost:3000/api"
 ```
 
 You can add a new item:
 
 ```bash
-curl "http://localhost:3000/api" -d "name=Jimbo&surname=Johnson"
+curl --header "Authorization: Bearer jwttoken" "http://localhost:3000/api" -d "name=Jimbo&surname=Johnson"
 ```
 
 (for complex objects, just do a POST with a JSON body)
@@ -48,19 +55,19 @@ curl "http://localhost:3000/api" -d "name=Jimbo&surname=Johnson"
 You can query a specific item by appeding the identifier of the record (the _id attribute):
 
 ```bash
-curl "http://localhost:3000/api/51acc04f196573941f000002"
+curl --header "Authorization: Bearer jwttoken" "http://localhost:3000/api/51acc04f196573941f000002"
 ```
 
 You can update an item:
 
 ```bash
-curl "http://localhost:3000/api/51acc04f196573941f000002" "name=Jimbo&surname=Smith"
+curl --header "Authorization: Bearer jwttoken" "http://localhost:3000/api/51acc04f196573941f000002" "name=Jimbo&surname=Smith"
 ```
 
 And finally you can delete an item:
 
 ```bash
-curl "http://localhost:3000/api/51acc04f196573941f000002" -X DELETE
+curl --header "Authorization: Bearer jwttoken" "http://localhost:3000/api/51acc04f196573941f000002" -X DELETE
 ```
 
 To use this REST service in an [AngularJS](http://angularjs.org) application, all you need to do is to include the
@@ -107,11 +114,19 @@ following example checks that a query parameter `q` is passed to the web service
 
 ```js
 MyAPI.prototype._query = function(req, res) {
-  if (!req.query.q) {
-    arrest.sendError(res, 400, 'q parameter is missing');
-  } else {
-    this.query({ name: req.query.q}, arrest.responseCallback(res));
-  }
+  var self = this;
+
+  checkAuthentification(req, self.privateKey, function () {
+      if (!req.user && !req.user.bucket) {
+          return exports.sendError( res, 401, 'Unauthorized');
+      }
+
+      if (!req.query.q) {
+          arrest.sendError(res, 400, 'q parameter is missing');
+      } else {
+        self.query.call( self, req.user.bucket, { name: req.query.q}, arrest.responseCallback(res));
+      }
+  });
 }
 ```
 
