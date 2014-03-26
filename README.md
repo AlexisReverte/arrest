@@ -103,7 +103,7 @@ var util = require('util')
   , arrest = require('arrest')
   
 function MyAPI() {
-  arrest.RestMongoAPI.call(this, 'mongodb://localhost:27017', 'my_collection');
+  arrest.RestMongoAPI.call(this, 'mongodb://localhost:27017', privateKey, 'my_collection');
 }
 
 util.inherits(MyAPI, RestMongoAPI);
@@ -116,9 +116,9 @@ following example checks that a query parameter `q` is passed to the web service
 MyAPI.prototype._query = function(req, res) {
   var self = this;
 
-  checkAuthentification(req, self.privateKey, function () {
+  self.resolveAuthentification(req, self.privateKey, function () {
       if (!req.user && !req.user.bucket) {
-          return exports.sendError( res, 401, 'Unauthorized');
+          return arrest.sendError( res, 401, 'Unauthorized');
       }
 
       if (!req.query.q) {
@@ -158,7 +158,7 @@ For example:
 
 ```js
 function MyAPI() {
-  arrest.RestMongoAPI.call(this, 'mongodb://localhost:27017', 'my_collection');
+  arrest.RestMongoAPI.call(this, 'mongodb://localhost:27017', privateKey, 'my_collection');
   this.routes.push({ method: 'get', mount: '/greet/:name', handler: this._hello });
 }
 
